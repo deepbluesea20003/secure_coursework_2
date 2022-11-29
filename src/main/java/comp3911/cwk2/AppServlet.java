@@ -24,6 +24,10 @@ public class AppServlet extends HttpServlet {
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
   private static final String AUTH_QUERY = "select * from user where username= ? and password= ?";
   private static final String SEARCH_QUERY = "select * from patient where surname= ? collate nocase";
+  private static final String JOIN_QUERY = "SELECT patient.id, patient.surname, patient.forename," +
+          " patient.address, patient.born, patient.gp_id, patient.treated_for FROM" +
+          " patient INNER JOIN user ON patient.gp_id=user.id AND user.username = ? " +
+          "AND patient.surname = ?";
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
@@ -82,7 +86,7 @@ public class AppServlet extends HttpServlet {
       if (authenticated(username, password)) {
         // Get search results and merge with template
         Map<String, Object> model = new HashMap<>();
-        model.put("records", searchResults(surname));
+        model.put("records", searchResults(username, surname));
         Template template = fm.getTemplate("details.html");
         template.process(model, response.getWriter());
       }
@@ -111,15 +115,17 @@ public class AppServlet extends HttpServlet {
     }
   }
 
-  private List<Record> searchResults(String surname) throws SQLException {
+  private List<Record> searchResults(String username, String surname) throws SQLException {
     List<Record> records = new ArrayList<>();
-    PreparedStatement query = database.prepareStatement(SEARCH_QUERY);
-    query.setString(1,surname);
-    System.out.println(query);
+    PreparedStatement joinQuery = database.prepareStatement(JOIN_QUERY);
+    joinQuery.setString(1,username);
+    joinQuery.setString(2,surname);
+    System.out.println(joinQuery);
 
     try {
-      ResultSet results = query.executeQuery();
+      ResultSet results = joinQuery.executeQuery();
       while (results.next()) {
+        System.out.println(results);
         Record rec = new Record();
         rec.setSurname(results.getString(2));
         rec.setForename(results.getString(3));
@@ -131,7 +137,6 @@ public class AppServlet extends HttpServlet {
       }
 
     }catch (Exception ignored){
-
     }
     return records;
   }
