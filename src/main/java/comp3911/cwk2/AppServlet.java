@@ -2,11 +2,7 @@ package comp3911.cwk2;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,8 +22,8 @@ import freemarker.template.TemplateExceptionHandler;
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
-  private static final String AUTH_QUERY = "select * from user where username='%s' and password='%s'";
-  private static final String SEARCH_QUERY = "select * from patient where surname='%s' collate nocase";
+  private static final String AUTH_QUERY = "select * from user where username= ? and password= ?";
+  private static final String SEARCH_QUERY = "select * from patient where surname= ? collate nocase";
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
@@ -103,20 +99,26 @@ public class AppServlet extends HttpServlet {
   }
 
   private boolean authenticated(String username, String password) throws SQLException {
-    String query = String.format(AUTH_QUERY, username, password);
-    System.out.println(query);
-    try (Statement stmt = database.createStatement()) {
-      ResultSet results = stmt.executeQuery(query);
-      boolean result = results.next();
+    PreparedStatement query = database.prepareStatement(AUTH_QUERY);
+    query.setString(1,username);
+    query.setString(2,password);
+
+    try {
+      ResultSet results = query.executeQuery();
       return results.next();
+    } catch (Exception e){
+      return false;
     }
   }
 
   private List<Record> searchResults(String surname) throws SQLException {
     List<Record> records = new ArrayList<>();
-    String query = String.format(SEARCH_QUERY, surname);
-    try (Statement stmt = database.createStatement()) {
-      ResultSet results = stmt.executeQuery(query);
+    PreparedStatement query = database.prepareStatement(SEARCH_QUERY);
+    query.setString(1,surname);
+    System.out.println(query);
+
+    try {
+      ResultSet results = query.executeQuery();
       while (results.next()) {
         Record rec = new Record();
         rec.setSurname(results.getString(2));
@@ -127,6 +129,9 @@ public class AppServlet extends HttpServlet {
         rec.setDiagnosis(results.getString(7));
         records.add(rec);
       }
+
+    }catch (Exception ignored){
+
     }
     return records;
   }
