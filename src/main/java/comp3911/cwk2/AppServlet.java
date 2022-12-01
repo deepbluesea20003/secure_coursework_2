@@ -22,8 +22,11 @@ import freemarker.template.TemplateExceptionHandler;
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
-  private static final String AUTH_QUERY = "select * from user where username= ? and password= ?";
+  private static final String AUTH_QUERY = "select * from user where username= ?"; // removed asking for password
+  private static final String HASH_QUERY =  "select * from user where username= ? and password = ?";
   private static final String SEARCH_QUERY = "select * from patient where surname= ? collate nocase";
+  // don't store in database
+  private static final String PEPPER = "f5c9966d4ad5b448be2c579bb9c8f5db906f8fd3471815931291ef191ca80226";
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
@@ -101,10 +104,17 @@ public class AppServlet extends HttpServlet {
   private boolean authenticated(String username, String password) throws SQLException {
     PreparedStatement query = database.prepareStatement(AUTH_QUERY);
     query.setString(1,username);
-    query.setString(2,password);
 
     try {
       ResultSet results = query.executeQuery();
+      String salt = results.getString(5);
+
+      String newPassword =  SHAExample.get_SHA_512_SecurePassword(password+PEPPER, salt);
+
+      query = database.prepareStatement(HASH_QUERY);
+      query.setString(1,username);
+      query.setString(2,newPassword);
+      results = query.executeQuery();
       return results.next();
     } catch (Exception e){
       return false;
@@ -117,7 +127,6 @@ public class AppServlet extends HttpServlet {
 
     );
     query.setString(1,surname);
-    System.out.println(query);
 
     try {
       ResultSet results = query.executeQuery();
